@@ -1,159 +1,152 @@
-# MAO-CLIMB: Curriculum Learning for Infant-inspired Model Building Beyond English
+# Project Checkpoint: Running the BabyLM Experiments
 
-Cognitively-Plausible Small-Scale Language Models trained using developmentally-plausible corpora of Child-Directed Speech, and a series of universal and language-specific objective curricula.
+Hey! This is my version of the MAO-CLIMB repository for my project.
 
+The original code is a bit old and was made for a specific computer cluster, so I had to make a lot of fixes to get it running in a normal environment. This guide explains all the steps I took to get the experiments working.
 
-## Set-up 
+## 1. Getting Everything Set Up
 
+The original `setup.sh` script won't work. Instead, we have to do it manually.
 
-```
-git clone https://github.com/suchirsalhan/MAO-CLIMB
-python3 -m venv venvs/demo; source venvs/demo/bin/activate
-bash setup.sh
-```
-This will require being a member of the BabyLM HuggingFace and W&B accounts to provide the correct authorisation keys to log runs. Save HuggingFace Read and Write Tokens as follows in `.env`: 
-```
-export HF_READ_TOKEN= [insert]
-export HF_WRITE_TOKEN= [insert]
-
+#### Step 1: Clone this Repo
+First, clone this repository (not the original one!).
+```bash
+git clone https://github.com/Peter-Shamoun/Quarter-1-Project-Checkpoint.git
+cd Quarter-1-Project-Checkpoint
 ```
 
-## Training
+#### Step 2: Create a Python Environment
+We need a special environment to install all the packages.
+```bash
+# Install virtualenv if you don't have it
+pip install virtualenv
 
-Training logs are stored using Weights & Biases (W&B). This requires two parameters `experiment.group` and `experiment.name` to log runs. 
-
-To train an SSLM for  `fr, de, ja, zh ` run the following command: 
-```
-python train.py experiment.name="chinese-demo-1" experiment.group="suchir-demo" dataset.subconfig="zh_lang_small" tokenizer="zh_cbt"
-```
-
-**IMPORTANT:** For `cat, ron`, the vocabulary sizes are slightly smaller. Specify this as follows: 
-```
-python train.py experiment.name="chinese-demo-1" experiment.group="suchir-demo" dataset.subconfig="zh_lang_small" tokenizer="zh_cbt"
+# Create and activate the environment
+virtualenv -p python3 env
+source env/bin/activate
 ```
 
-For Dry Runs: 
+#### Step 3: Install the Dependencies (The Tricky Part)
+The `requirements.txt` file has old package versions that don't work anymore. We have to install them in a specific way.
+```bash
+# Install the packages but ignore their old dependencies
+pip install -r requirements.txt --no-deps
 
-```
-python train.py experiment.name="chinese-demo-1" experiment.group="suchir-demo" dataset.subconfig="zh_lang_small" tokenizer="zh_cbt" experiment.dry_run=True trainer.max_training_steps=100 trainer.num_warmup_steps=10
+# Now, install modern, working versions of the important libraries
+pip install numpy pandas transformers datasets hydra-core wandb pre-commit nltk accelerate
 
-```
-
-## Bubbles
-
-
-To train an SSLM using the HPC, `cd scripts`, and then run the following command in the terminal: 
-```
-sh launch_torchrun.sh experiment.name="chinese-demo-1" experiment.group="suchir-demo" ...
+# Finally, install a compatible version of PyTorch (this example uses CUDA 11.8)
+pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu118
 ```
 
-Note the following changes to the `setup.sh`. 
+#### Step 4: Download the Data
+The code can't download the data from Hugging Face anymore, so we have to get it ourselves.
+```bash
+# Create a folder for our data
+mkdir local_data
 
-```
-# module rm rhel7/global
-# module rm rhel7/default-gpu
+# Download the training and validation sets
+wget https://osf.io/s524d/download -O local_data/train_10M.zip
+wget https://osf.io/e742v/download -O local_data/dev.zip
 
-if [ ! -d "env" ]; then
-        # module load python-3.9.6-gcc-5.4.0-sbr552h
-        export TMPDIR='/var/tmp'
-        virtualenv -p python3 env
-        source env/bin/activate
-        git lfs install
-        pip install -r requirements.txt
-        pip install torch==1.12.0+cu113 torchvision==0.13.0+cu113 torchaudio==0.12.0 --extra-index-url https://download.pytorch.org/whl/cu113
-        pre-commit install
-        huggingface-cli login
-        wandb login
-else
-        source env/bin/activate
-fi
-source .env
-
-
-export PATH="$(pwd)/lib/bin:$PATH"
-```
-
-## HPC
-
-[Cambridge University HPC Cluster]: The models can be trained using the `wilkes3-gpu` on the Cambridge HPC cluster. Sample HPC scripts are provided in `./scripts`. 
-
-
-To train an SSLM using the HPC, `cd scripts`, and then run the following command in the terminal: 
-```
-sbatch launch_slurm.wilkes3  experiment.name="chinese-demo-1" experiment.group="suchir-demo" dataset.subconfig="zh_lang_small" tokenizer="zh_cbt"
-sbatch launch_slurm.wilkes3  experiment.name="german-demo-1" experiment.group="suchir-demo" dataset.subconfig="de_lang_small" tokenizer="de_cbt"
-sbatch launch_slurm.wilkes3  experiment.name="french-demo-1" experiment.group="suchir-demo" dataset.subconfig="fr_lang_small" tokenizer="fr_cbt"
-
-```
-
-Example usage on the Interactive Node of the HPC for a Dry Run:
-
-```
-cd scripts
-./launch_interactive.sh
+# Unzip them
+cd local_data
+unzip train_10M.zip
+unzip dev.zip
 cd ..
-python train.py experiment.name="chinese-demo-1" experiment.group="suchir-demo" dataset.subconfig="zh_lang_strict_gold" tokenizer="zh_cbt" experiment.dry_run=True trainer.max_training_steps=100 trainer.num_warmup_steps=10
 ```
 
+#### Step 5: Add Your Hugging Face Tokens
+Even though we're using local data, the tokenizer still needs to be downloaded. Create a file named `.env` for your tokens.
+```bash
+echo 'export HF_READ_TOKEN=hf_...[your_token_here]' > .env
+echo 'export HF_WRITE_TOKEN=hf_...[your_token_here]' >> .env
+```
 
+## 2. Training the Models 🚀
 
-## Training Datasets
+Now you're ready to train! The plan is to train three different models. You can run each of these commands in a separate terminal to run them at the same time.
 
-HuggingFace BabyLM Datasets for French, German, Japanese and Chinese have been developed and released here:
+**IMPORTANT**: In every new terminal, you have to activate the environment and load your tokens first!
+```bash
+source env/bin/activate
+source .env
+```
 
-[BabyLM](https://huggingface.co/datasets/cambridge-climb/BabyLM)
+---
 
+### Baseline Model
+This is the standard model with no special curriculum.
+```bash
+python train.py \
+  experiment.name="baseline-10m" \
+  experiment.group="babylm-project" \
+  dataset=strict_small \
+  experiment.offline_run=True
+```
 
-| Language  | code  | AO Corpora | Data Curriculum | Tokeniser |
-| ------------- | ------------- | ------------- | ------------- |------------- |
-| **French** |  `fr`  | `fr_lang_small` | `fr_lang_strict`  |`fr_cbt`  |
-| **German** | `de`  | `de_lang_small`  | `de_lang_strict`  |`de_cbt`  |
-| **Chinese** | `zh`  | `zh_lang_small` | `zh_lang_strict`  |`zh_cbt`  |
-| **Spanish** | `es`  | `es_lang_small` | `es_lang_strict`  |`es_cbt`  |
-| **Portuguese** | `po`  | `po_lang_small` | `po_lang_strict`  |`po_cbt`  |
-| **Italian** | `it`  | `it_lang_small` | `it_lang_strict`  |`it_cbt`  |
-| **Catalan** | `cat`  | `cat_lang_small` | `cat_lang_strict`  |`cat_cbt`  |
-| **Dutch** | `nld`  | `nld_lang_small` | `nld_lang_strict`  |`nld_cbt`  |
-| **Romanian** | `ron`  | `ron_lang_small` | `ron_lang_strict`  |`ron_cbt`  |
-| **Russian** | `ru`  | `ru_lang_small` | `ru_lang_strict`  |`ru_cbt`  |
-| **Polish** | `pol`  | `pol_lang_small` | `pol_lang_strict`  |`pol_cbt`  |
-| **Bulgarian** | `bul`  | `bul_lang_small` | `bul_lang_strict`  |`bul_cbt`  |
-| **Czech** | `ces`  | `ces_lang_small`  | `ces_lang_strict`  |`ces_cbt`  |
-| **Swedish** | `swe`  | `swe_lang_small`  | `swe_lang_strict`  |`swe_cbt`  |
-| **Norwegian** | `nor`  | `nor_lang_small`  | `nor_lang_strict`  |`nor_cbt`  |
-| **Danish** | `dan`  | `dan_lang_small`  | `dan_lang_strict`  |`dan_cbt`  |
-| **Iceland** | `isl`  | `isl_lang_small`  | `isl_lang_strict`  |`isl_cbt`  |
-| **Korean** | `kor`  | `kor_lang_small`  | `kor_lang_strict`  |`kor_cbt`  |
-| **Indonesian** | `ind`  | `ind_lang_small`  | `ind_lang_strict`  |`ind_cbt`  |
-| **Thai** | `tha`  | `tha_lang_small`  | `tha_lang_strict`  |`tha_cbt`  |
-| **Japanese** | `ja`  | `ja_lang_small`  | `ja_lang_strict`  |`ja_cbt`  |
+### Data Curriculum Model
+This model learns from "easier" data first.
+*Note: We're using `linear_ngram` because the original `data_split` curriculum doesn't work with our local data setup.*
+```bash
+python train.py \
+  experiment.name="data-curriculum-10m" \
+  experiment.group="babylm-project" \
+  dataset=strict_small \
+  +data_curriculum=linear_ngram \
+  experiment.offline_run=True
+```
 
+### Objective Curriculum Model
+This model learns a simpler task (predicting nouns/verbs) before moving on to the main goal.
+```bash
+python train.py \
+  experiment.name="objective-curriculum-10m" \
+  experiment.group="babylm-project" \
+  dataset=strict_small \
+  objective_curriculum=pos_nv_mlm \
+  experiment.offline_run=True
+```
 
-Additionally, MAO-CHILDES corpora have been developed for low(er)-resourced languages:
+## 3. Evaluating the Models (Getting Perplexity)
 
-| Language  | code  | AO Corpora | Data Curriculum | Tokeniser |
-| ------------- | ------------- | ------------- | ------------- |------------- |
-| **Afrikaans** |  `afr`  | `afr_lang_small` | `afr_lang_strict`  |`afr_cbt`  |
-| **Croatian** | `hrv`  | `hrv_lang_small`  | `hrv_lang_strict`  |`hrv_cbt`  |
-| **Serbian** | `srp`  | `srp_lang_small`  | `srp_lang_strict`  |`srp_cbt`  |
-| **Slovenian** | `slv`  | `slv_lang_small`  | `slv_lang_strict`  |`slv_cbt`  |
+After a model is done training, a checkpoint will be saved in the `checkpoints/` directory. You can then run the `evaluate.py` script to calculate the perplexity.
 
+Here is a template for the command:
+```bash
+python evaluate.py \
+  experiment.name="<your_experiment_name>" \
+  experiment.group="babylm-project" \
+  dataset=strict_small \
+  experiment.offline_run=True \
+  experiment.resume_checkpoint_path="<path_to_your_checkpoint>" \
+  trainer.eval_blimp=False \
+  trainer.eval_glue=False \
+  trainer.eval_msgs=False \
+  trainer.eval_perplexity=True
+```
 
+**Example for the baseline model:**
+(Assuming the final checkpoint is at step 400000)
+```bash
+python evaluate.py \
+  experiment.name="baseline-10m" \
+  experiment.group="babylm-project" \
+  dataset=strict_small \
+  experiment.offline_run=True \
+  experiment.resume_checkpoint_path="checkpoints/babylm-project/baseline-10m/checkpoint-400000" \
+  trainer.eval_blimp=False \
+  trainer.eval_glue=False \
+  trainer.eval_msgs=False \
+  trainer.eval_perplexity=True
+```
+The script will run for a bit and then print out the perplexity scores to the console.
 
-## Evaluation
+## Original Project Info
 
+This work is based on the original MAO-CLIMB repository and the BabyLM Challenge.
 
-
-## 🧗 CLIMB 
-The code extends Cambridge University & Collaborator's submission to the [Baby LM Challenge](https://babylm.github.io/) (strict-small track) for **English-based Small-Scale Language Models**. 
-
-## Citation
-
-If you find the code or ideas behind the paper useful, please consider citing our paper. 
-
-Salhan, S.A., Martinez, R. D.,  Goriely, Z., & Buttery, P. (2024, November). Less is More: Pre-Training Cross-Lingual Small-Scale Language Models with Cognitively-Plausible Curriculum Learning Strategies. In Proceedings of the BabyLM Challenge at the 28th Conference on Computational Natural Language Learning (pp. 112-127).
-
-
+#### Citation
 ```
 @inproceedings{salhan-etal-2024-less,
     title = " Less is More: Pre-Training Cross-Lingual Small-Scale Language Models with Cognitively-Plausible Curriculum Learning Strategies",
@@ -161,24 +154,9 @@ Salhan, S.A., Martinez, R. D.,  Goriely, Z., & Buttery, P. (2024, November). Les
       Diehl Martinez, Richard
       Goriely, Zebulon  and
       Buttery, Paula",
-    editor = "Warstadt, Alex  and
-      Mueller, Aaron  and
-      Choshen, Leshem  and
-      Wilcox, Ethan  and
-      Zhuang, Chengxu  and
-      Ciro, Juan  and
-      Mosquera, Rafael  and
-      Paranjabe, Bhargavi  and
-      Williams, Adina  and
-      Linzen, Tal  and
-      Cotterell, Ryan",
     booktitle = "Proceedings of the BabyLM Challenge at the 28th Conference on Computational Natural Language Learning",
     month = nov,
     year = "2024",
-    address = "Miami",
     publisher = "Association for Computational Linguistics",
-    url = "https://aclanthology.org/2023.conll-babylm.10",
-    doi = "10.18653/v1/2023.conll-babylm.10",
-    pages = "112--127",
-}```
-
+}
+```
