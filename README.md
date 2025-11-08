@@ -62,7 +62,7 @@ echo 'export HF_READ_TOKEN=hf_...[your_token_here]' > .env
 echo 'export HF_WRITE_TOKEN=hf_...[your_token_here]' >> .env
 ```
 
-## 2. Training the Models 🚀
+## 2. Training the Models 
 
 Now you're ready to train! The plan is to train three different models. You can run each of these commands in a separate terminal to run them at the same time.
 
