@@ -13,9 +13,7 @@ import torch.distributed as dist
 import torch.nn as nn
 from huggingface_hub.hf_api import create_repo
 from huggingface_hub.repository import Repository
-from huggingface_hub.utils._errors import HfHubHTTPError
-from omegaconf import OmegaConf
-
+from huggingface_hub.errors import HfHubHTTPError
 # Data loading
 from torch.utils.data import DataLoader, RandomSampler
 from torch.utils.data.distributed import DistributedSampler

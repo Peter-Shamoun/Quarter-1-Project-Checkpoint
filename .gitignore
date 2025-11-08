@@ -1,0 +1,20 @@
+
+# Ignore all downloaded and generated data
+local_data/
+ryjfm/
+
+# Ignore logs and output directories
+outputs/
+wandb/
+
+# Ignore the virtual environment
+env/
+
+# Ignore other temporary files
+*.zip
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+
+.env

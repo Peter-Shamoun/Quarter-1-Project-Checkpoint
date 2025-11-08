@@ -6,8 +6,9 @@ from typing import Dict, List
 import torch
 from torch import Tensor
 from torch.nn.parallel import DistributedDataParallel
+# AFTER
+from torch.optim import AdamW
 from transformers import (
-    AdamW,
     PreTrainedTokenizerFast,
     RobertaConfig,
     get_linear_schedule_with_warmup,
@@ -88,7 +89,8 @@ class _DataCollatorForPOSTask:
         probability_matrix = torch.full(
             pos_tags_labels.shape, self.mask_probability_other
         )
-        probability_matrix.masked_fill_(special_tokens_mask, value=0.0)
+        # AFTER (Line 92)
+        probability_matrix.masked_fill_(special_tokens_mask.bool(), value=0.0)
         probability_matrix.masked_fill_(
             pos_tags_labels != 0, value=self.mask_probability_pos
         )
@@ -166,12 +168,13 @@ class POSTask(BaseTaskUnit):
             self.device
         )
 
-        if self.local_rank != -1:
+        if self.local_rank != -1 and torch.distributed.is_initialized():
             self._pos_head = DistributedDataParallel(
                 self._pos_head,
                 device_ids=[self.local_rank],
                 output_device=self.local_rank,
             )
+
 
         # Setting up optimizer and scheduler
         self._optimizer = AdamW(

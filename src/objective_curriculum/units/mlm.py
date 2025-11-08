@@ -2,10 +2,11 @@
 
 # typing imports
 from typing import Any, Dict
-
+import torch
 from torch.nn.parallel import DistributedDataParallel
+# AFTER
+from torch.optim import AdamW
 from transformers import (
-    AdamW,
     DataCollatorForLanguageModeling,
     RobertaConfig,
     get_linear_schedule_with_warmup,
@@ -23,32 +24,36 @@ class _DataCollatorForLanguageModeling(DataCollatorForLanguageModeling):
         super().__init__(*args, **kwargs)
         self.unmask_probability = unmask_probability
 
+    # In src/objective_curriculum/units/mlm.py
+
+    # In src/objective_curriculum/units/mlm.py
+
     def torch_call(self, *args):
         """
         Prepares data for the masked language modeling task.
-
-        NOTE: The Datacollators should always return a batch with the following keys:
-        {
-            input_ids_{task_unit_name}
-            labels_{task_unit_name}
-            pos_tags
-        }
+        ...
         """
-        batch: Dict[str, Any] = super().torch_call(*args)
+        # --- START of FIX ---
+        # The modern tokenizer adds 'offset_mapping', which the old collator doesn't expect.
+        # We need to remove it from the features before passing them on.
+        features = args[0]
+        features_without_offset = [{k: v for k, v in f.items() if k != "offset_mapping"} for f in features]
+        # --- END of FIX ---
+    
+        batch: Dict[str, Any] = super().torch_call(features_without_offset) # Pass the cleaned features
         assert "labels" in batch
-
+    
         batch["input_ids_mlm"] = batch["input_ids"]
         batch["labels_mlm"] = batch["labels"]
-        del batch["labels"]  # each task has its own labels
-        del batch["input_ids"]  # each task has its own input_ids
+        del batch["labels"]
+        del batch["input_ids"]
         return batch
 
     # We override this function to allow us to adjust the probability of unmasking
-    def torch_mask_tokens(self, inputs: Any, special_tokens_mask=None):
-        """
+    # AFTER (around line 50)
+    def torch_mask_tokens(self, inputs: Any, special_tokens_mask=None, **kwargs):        """
         Prepare masked tokens inputs/labels for masked language modeling: 80% MASK, 10% random, 10% original.
         """
-        import torch
 
         labels = inputs.clone()
         # We sample a few tokens in each sequence for MLM training (with probability `self.mlm_probability`)
@@ -129,7 +134,7 @@ class MLMTask(BaseTaskUnit):
             self.device
         )
 
-        if self.local_rank != -1:
+        if self.local_rank != -1 and torch.distributed.is_initialized():
             self._mlm_head = DistributedDataParallel(
                 self._mlm_head,
                 device_ids=[self.local_rank],

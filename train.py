@@ -81,11 +81,14 @@ def main(cfg: BabyLMConfig):
 
     # Loading dataset
     logger.info("Loading dataset")
-    dataset: DatasetDict = load_dataset(
-        cfg.dataset.name,
-        cfg.dataset.subconfig,
-        use_auth_token=os.environ["HF_READ_TOKEN"],
-    )  # type: ignore
+    # AFTER
+    data_files = {
+        "train": "local_data/train_10M/*.train",  # <-- Corrected this line
+        "validation": "local_data/dev/*.dev"
+    }
+    # Load the dataset from the local text files
+    dataset: DatasetDict = load_dataset("text", data_files=data_files)
+
 
     assert isinstance(dataset, DatasetDict), "Dataset is not a DatasetDict"
 
@@ -219,7 +222,7 @@ def main(cfg: BabyLMConfig):
         max_steps=cfg.trainer.max_training_steps,
         warmup_steps=cfg.trainer.num_warmup_steps,
         seed=cfg.experiment.seed,
-        evaluation_strategy="no", #"steps"
+        # evaluation_strategy="no", #"steps"
         #eval_steps=cfg.trainer.max_training_steps
         #// (2 if cfg.experiment.dry_run else 8),  # eval every 25% of training
         save_steps=cfg.trainer.max_training_steps
