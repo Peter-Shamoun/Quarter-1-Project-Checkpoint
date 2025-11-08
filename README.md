@@ -1,6 +1,5 @@
 # Project Checkpoint: Running the BabyLM Experiments
-
-Hey! This is my version of the MAO-CLIMB repository for my project.
+This is my version of the MAO-CLIMB repository for my project.
 
 The original code is a bit old and was made for a specific computer cluster, so I had to make a lot of fixes to get it running in a normal environment. This guide explains all the steps I took to get the experiments working.
 
