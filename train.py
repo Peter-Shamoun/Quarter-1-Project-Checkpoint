@@ -136,7 +136,7 @@ def main(cfg: BabyLMConfig):
     else:
         # These environment variables get picked up by Trainer
         os.environ["WANDB_PROJECT"] = cfg.experiment.group
-        os.environ["WANDB_ENTITY"] = "baby-lm"
+        os.environ["WANDB_ENTITY"] = "petershamoun80-uc-san-diego"
         wandb.config = OmegaConf.to_container(
             cfg, resolve=True, throw_on_missing=True
         )
@@ -152,7 +152,7 @@ def main(cfg: BabyLMConfig):
         # Check if we're on process 0
         if int(os.environ.get("RANK", "0")) == 0:
             wandb.init(
-                entity="baby-lm",
+                entity="petershamoun80-uc-san-diego",
                 project=cfg.experiment.group,
                 name=cfg.experiment.name,
                 config=wandb.config,  # type: ignore
@@ -165,7 +165,7 @@ def main(cfg: BabyLMConfig):
             if cfg.experiment.resume_run_id:
                 try:
                     curriculum_learning_table = wandb.run.use_artifact(
-                        f"baby-lm/{cfg.experiment.group}/run-{cfg.experiment.resume_run_id}-traincurriculum_learning_table:latest",
+                        f"petershamoun80-uc-san-diego/{cfg.experiment.group}/run-{cfg.experiment.resume_run_id}-traincurriculum_learning_table:latest",
                     ).get("train/curriculum_learning_table")
                 except WandbCommError:
                     logger.warning(
@@ -239,13 +239,9 @@ def main(cfg: BabyLMConfig):
         else None,  # wandb deactivated for offline runs
         save_strategy="steps",
         hub_strategy="every_save",
-        push_to_hub=not cfg.experiment.offline_run,
-        hub_model_id=f"cambridge-climb/{cfg.experiment.group}-{cfg.model.name}-model"
-        if not cfg.experiment.offline_run
-        else None,
-        hub_token=os.environ["HF_WRITE_TOKEN"]
-        if not cfg.experiment.offline_run
-        else None,
+        push_to_hub=False,  # Disabled for sweep to avoid permission issues
+        hub_model_id=None,
+        hub_token=None,
         dataloader_drop_last=cfg.data_curriculum
         is not None,  # NOTE: This is to ensure that the curriculum is not broken on the last batch
         remove_unused_columns=False,

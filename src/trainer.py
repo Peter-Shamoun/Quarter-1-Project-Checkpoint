@@ -371,7 +371,7 @@ class CustomTrainer(Trainer):
         )
         return ignore_columns
 
-    def log(self, logs: Dict[str, float]) -> None:
+    def log(self, logs: Dict[str, float], start_time: float = None) -> None:
         """
         Log `logs` on the various objects watching training.
 
@@ -380,6 +380,8 @@ class CustomTrainer(Trainer):
         Args:
             logs (`Dict[str, float]`):
                 The values to log.
+            start_time (`float`, optional):
+                Start time for computing metrics (unused, for compatibility).
         """
         if self.state.epoch is not None:
             logs["epoch"] = round(self.state.epoch, 2)
@@ -595,7 +597,7 @@ class CustomTrainer(Trainer):
                 )
                 # if divisible by evaluation interval, log the table
                 if (
-                    self.args.evaluation_strategy == IntervalStrategy.STEPS
+                    hasattr(self.args, 'eval_strategy') and self.args.eval_strategy == IntervalStrategy.STEPS
                     and self.state.global_step
                     % self.args.eval_steps  # type: ignore
                     == 0
